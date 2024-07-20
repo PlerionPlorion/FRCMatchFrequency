@@ -5,15 +5,19 @@ from collections import defaultdict
 import easygui
 import pandas as pd
 import requests
-from bokeh.io import curdoc
+from bokeh.io import curdoc, export_png, export_svg
 from bokeh.layouts import layout
 from bokeh.models import ColumnDataSource, HoverTool, WheelZoomTool
 from bokeh.palettes import Spectral6
 from bokeh.plotting import figure, output_notebook, show
+from selenium import webdriver
 
 # API stuff
 api = 'https://www.thebluealliance.com/api/v3'
 authKey = 'TCExry18I2AXAYPpU1YtahdGb5SUkOKq1ZFTjA2aHMR3ZrnZFp0sgr4v35ixFZeW' # I'm sure this is fine
+options = webdriver.ChromeOptions()
+options.add_argument("headless=new")
+driver = webdriver.Chrome(options=options)
 
 # Getting team number
 requested_team = easygui.enterbox(msg="Please enter the team number", title='Team #', default='', strip=True, image=None, root=None)
@@ -207,5 +211,6 @@ p.legend.click_policy="hide"  # Allows clicking on legend items to hide the corr
 
 # Show the results
 curdoc().theme = 'dark_minimal'
-
+export_png(p, filename="plot.png", webdriver=driver)
+# export_svg(p, filename="plot.svg", webdriver=driver, height=max(source.data['Count'])*50)
 show(p)

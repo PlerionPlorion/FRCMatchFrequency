@@ -1,2 +1,5 @@
 *.html
 *.csv
+*.png
+*.svg
+test.py
