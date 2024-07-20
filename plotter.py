@@ -1,18 +1,19 @@
-import easygui
-import requests
+import csv
 import json
 from collections import defaultdict
-import csv
+
+import easygui
 import pandas as pd
-from bokeh.plotting import figure, show, output_notebook
-from bokeh.models import ColumnDataSource, WheelZoomTool, HoverTool
+import requests
 from bokeh.io import curdoc
 from bokeh.layouts import layout
+from bokeh.models import ColumnDataSource, HoverTool, WheelZoomTool
 from bokeh.palettes import Spectral6
+from bokeh.plotting import figure, output_notebook, show
 
 # API stuff
 api = 'https://www.thebluealliance.com/api/v3'
-authKey = 'TCExry18I2AXAYPpU1YtahdGb5SUkOKq1ZFTjA2aHMR3ZrnZFp0sgr4v35ixFZeW'
+authKey = 'TCExry18I2AXAYPpU1YtahdGb5SUkOKq1ZFTjA2aHMR3ZrnZFp0sgr4v35ixFZeW' # I'm sure this is fine
 
 # Getting team number
 requested_team = easygui.enterbox(msg="Please enter the team number", title='Team #', default='', strip=True, image=None, root=None)
