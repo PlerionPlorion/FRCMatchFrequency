@@ -22,7 +22,7 @@ pip install -r requirements.txt
 ```bash
 py plotter.py
 ```
-Input a team number
+Input a team number\
 Input a range of years you want data from
 ## Contributing
 
