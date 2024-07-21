@@ -198,6 +198,7 @@ hover = HoverTool(tooltips=[
     ("Team", "@Team_Key"),
     ("Matches Against", "@Opposing_Count"),
     ("Matches With", "@Allied_Count"),
+    ("Total Matches", "@Count"),
 ])
 p.add_tools(hover)
 
