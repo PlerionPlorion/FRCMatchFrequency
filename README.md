@@ -23,6 +23,7 @@ pip install -r requirements.txt
 py plotter.py
 ```
 Input a team number\
+Select match types to include\
 Input a range of years you want data from
 ## Contributing
 
