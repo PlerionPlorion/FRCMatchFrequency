@@ -22,6 +22,14 @@ driver = webdriver.Chrome(options=options)
 # Getting team number
 requested_team = easygui.enterbox(msg="Please enter the team number", title='Team #', default='', strip=True, image=None, root=None)
 requested_teamkey = 'frc' + requested_team
+requested_match_type = easygui.multchoicebox(msg="Please enter match types", title='Match Types', preselect=[0, 1], choices=['Quals', 'Elims'])
+# Replace 'Quals' with 'q' and 'Elims' with 'f' in requested_match_type
+requested_match_type = ['q' if mt == 'Quals' else 'f' if mt == 'Elims' else mt for mt in requested_match_type]
+# print(requested_match_type)
+response = requests.get(api + '/team/frc' + requested_team + '/years_participated', params={"X-TBA-Auth-Key": authKey})
+years = []
+all_opposing_teams = []
+all_allied_teams = []
 
 response = requests.get(api + '/team/frc' + requested_team + '/years_participated', params={"X-TBA-Auth-Key": authKey})
 years = []
@@ -49,7 +57,7 @@ def get_year_range():
             start_year = int(start_year_str.strip())
             end_year = int(end_year_str.strip())
             
-            if start_year >= end_year:
+            if start_year > end_year:
                 raise ValueError("End year must be greater than start year.")
             return start_year, end_year
         except ValueError as e:
@@ -87,44 +95,46 @@ if response.status_code == 200:
                 # Extract team_keys for the blue and red alliances
                 blue_teams = set(match['alliances']['blue']['team_keys'])
                 red_teams = set(match['alliances']['red']['team_keys'])
-                
+                match_type = match['comp_level']
+                if match_type == 'qf' or match_type == 'sf': match_type = 'f'
+                if match_type == 'qm': match_type = 'q'
                 # print(f"Blue Teams: {blue_teams}, Red Teams: {red_teams}")  # Debugging line
-                
-                # Identify the alliance of requested_team
-                requested_alliance = None
-                if requested_teamkey in blue_teams:
-                    requested_alliance = 'blue'
-                elif requested_teamkey in red_teams:
-                    requested_alliance = 'red'
-                else:
-                    print(f"Requested team {requested_team} not found in any alliance for year {year}.")
-                    continue
-                
-                # Check if the team was part of an alliance
-                if requested_alliance is None:
-                    print(f"Skipping year {year} for team {requested_team} as no alliance found.")
-                    continue
-                
-                # Update allied_teams and opposing_teams based on the actual alliance in this match
-                if requested_alliance == 'red':
-                    # Skip updating for requested_team itself
-                    # requested_team is an allied team for this match
-                    for team_key in red_teams:
-                        if team_key != requested_teamkey:
-                            allied_teams[team_key] = allied_teams.get(team_key, 0) + 1
-                    # requested_team is an opposing team for blue alliance matches
-                    for team_key in blue_teams:
-                        if team_key != requested_teamkey:
-                            opposing_teams[team_key] = opposing_teams.get(team_key, 0) + 1
-                else:  # If the team is in the blue alliance
-                    # requested_team is an opposing team for this match
-                    for team_key in red_teams:
-                        if team_key != requested_teamkey:
-                            opposing_teams[team_key] = opposing_teams.get(team_key, 0) + 1
-                    # requested_team is an allied team for other blue alliance matches
-                    for team_key in blue_teams:
-                        if team_key != requested_teamkey:
-                            allied_teams[team_key] = allied_teams.get(team_key, 0) + 1
+                if any(mt in match_type for mt in requested_match_type):
+                    # Identify the alliance of requested_team
+                    requested_alliance = None
+                    if requested_teamkey in blue_teams:
+                        requested_alliance = 'blue'
+                    elif requested_teamkey in red_teams:
+                        requested_alliance = 'red'
+                    else:
+                        print(f"Requested team {requested_team} not found in any alliance for year {year}.")
+                        continue
+                    
+                    # Check if the team was part of an alliance
+                    if requested_alliance is None:
+                        print(f"Skipping year {year} for team {requested_team} as no alliance found.")
+                        continue
+                    
+                    # Update allied_teams and opposing_teams based on the actual alliance in this match
+                    if requested_alliance == 'red':
+                        # Skip updating for requested_team itself
+                        # requested_team is an allied team for this match
+                        for team_key in red_teams:
+                            if team_key != requested_teamkey:
+                                allied_teams[team_key] = allied_teams.get(team_key, 0) + 1
+                        # requested_team is an opposing team for blue alliance matches
+                        for team_key in blue_teams:
+                            if team_key != requested_teamkey:
+                                opposing_teams[team_key] = opposing_teams.get(team_key, 0) + 1
+                    else:  # If the team is in the blue alliance
+                        # requested_team is an opposing team for this match
+                        for team_key in red_teams:
+                            if team_key != requested_teamkey:
+                                opposing_teams[team_key] = opposing_teams.get(team_key, 0) + 1
+                        # requested_team is an allied team for other blue alliance matches
+                        for team_key in blue_teams:
+                            if team_key != requested_teamkey:
+                                allied_teams[team_key] = allied_teams.get(team_key, 0) + 1
 
             
             # Save the team_keys and their counts for opposing and allied teams
@@ -177,13 +187,27 @@ mergedTeams['Team_Key'] = mergedTeams['Team_Key'].str.replace('frc', '')
 aggregated_data = mergedTeams.groupby('Team_Key').sum().reset_index()
 
 # Sort the data by the number of appearances in descending order
-sorted_data = aggregated_data.sort_values(by='Count', ascending=False)
+sorted_data = aggregated_data.sort_values(by='Allied_Count', ascending=False)
 
 # Convert to ColumnDataSource for Bokeh
 source = ColumnDataSource(sorted_data)
 
+# Determine the match types for the title
+match_types_title = []
+if 'q' in requested_match_type:
+    match_types_title.append('Quals')
+if 'f' in requested_match_type:
+    match_types_title.append('Finals')
+
+# Construct the title
+title = "Matches With"
+if len(match_types_title) > 0:
+    title += " in " + " and ".join(match_types_title)
+
+title += f" for: {requested_team}"
+
 # Create a new plot with a title and axis labels
-p = figure(title="Matches With for: " + requested_team,
+p = figure(title=title,
            x_axis_label='Team_Key',
            y_axis_label='Matches Across ' + str(start_year) + '-' + str(end_year),
            tools="pan,wheel_zoom,box_zoom,reset",
