@@ -216,7 +216,7 @@ title += f" for: {requested_team}"
 
 # Create a new plot with a title and axis labels
 p = figure(title=title,
-           x_axis_label='Team_Key',
+           x_axis_label='Team',
            y_axis_label='Matches Across ' + str(start_year) + '-' + str(end_year),
            tools="pan,wheel_zoom,box_zoom,reset",
            x_range=(source.data['Team_Key']),
