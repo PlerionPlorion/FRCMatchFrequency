@@ -4,3 +4,4 @@
 *.svg
 test.py
 .venv
+.output

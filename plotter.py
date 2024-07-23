@@ -1,11 +1,12 @@
 import csv
 import json
+import os
 from collections import defaultdict
 
 import easygui
 import pandas as pd
 import requests
-from bokeh.io import curdoc, export_png, export_svg
+from bokeh.io import curdoc, export_png, export_svg, output_file, save
 from bokeh.layouts import layout
 from bokeh.models import ColumnDataSource, HoverTool, WheelZoomTool
 from bokeh.palettes import Spectral6
@@ -22,7 +23,7 @@ driver = webdriver.Chrome(options=options)
 # Getting team number
 requested_team = easygui.enterbox(msg="Please enter the team number", title='Team #', default='', strip=True, image=None, root=None)
 requested_teamkey = 'frc' + requested_team
-requested_match_type = easygui.multchoicebox(msg="Please enter match types", title='Match Types', preselect=[0, 1], choices=['Quals', 'Elims'])
+requested_match_type = easygui.multchoicebox(msg="Please enter match types", title='Match Types', preselect=[0, 1, 2, 3], choices=['Quals', 'Elims', 'Matches With', 'Matches Against'])
 # Replace 'Quals' with 'q' and 'Elims' with 'f' in requested_match_type
 requested_match_type = ['q' if mt == 'Quals' else 'f' if mt == 'Elims' else mt for mt in requested_match_type]
 # print(requested_match_type)
@@ -182,8 +183,21 @@ mergedTeams['Team_Key'] = mergedTeams['Team_Key'].str.replace('frc', '')
 aggregated_data = mergedTeams.groupby('Team_Key').sum().reset_index()
 
 # Sort the data by the number of appearances in descending order
-sorted_data = aggregated_data.sort_values(by='Count', ascending=False)
-
+if any(mt == 'Matches With' for mt in requested_match_type) and not any(mt == 'Matches Against' for mt in requested_match_type):
+    y_range_data = 'Allied_Count'
+    title = "Matches With"
+    color = 1
+    legend_name = title
+elif any(mt == 'Matches Against' for mt in requested_match_type) and not any(mt == 'Matches With' for mt in requested_match_type):
+    y_range_data = 'Opposing_Count'
+    title = "Matches Against"
+    color = 0
+    legend_name = title
+else:
+    y_range_data = 'Count'
+    title = "Matches With and Against"
+filename = title
+sorted_data = aggregated_data.sort_values(by=y_range_data, ascending=False)
 # Convert to ColumnDataSource for Bokeh
 source = ColumnDataSource(sorted_data)
 
@@ -195,7 +209,6 @@ if 'f' in requested_match_type:
     match_types_title.append('Finals')
 
 # Construct the title
-title = "Matches With and Against"
 if len(match_types_title) > 0:
     title += " in " + " and ".join(match_types_title)
 
@@ -207,7 +220,7 @@ p = figure(title=title,
            y_axis_label='Matches Across ' + str(start_year) + '-' + str(end_year),
            tools="pan,wheel_zoom,box_zoom,reset",
            x_range=(source.data['Team_Key']),
-           y_range=(0, max(source.data['Count'])*1.1),
+           y_range=(0, max(source.data[y_range_data])*1.1),
            width=len(source.data['Team_Key'])*15)
 p.xaxis.major_label_orientation = "vertical"
 p.toolbar.active_scroll = p.select_one(WheelZoomTool)
@@ -222,15 +235,29 @@ hover = HoverTool(tooltips=[
 p.add_tools(hover)
 
 # Add a renderer with legend and line thickness
-p.vbar_stack(['Allied_Count', 'Opposing_Count'], x='Team_Key', width=0.5, color=Spectral6[:2], source=source,
+if y_range_data != 'Count':
+    p.vbar(top=y_range_data, x='Team_Key', width=0.5, color=Spectral6[color], source=source,
+       legend_label=legend_name)
+else:
+    p.vbar_stack(['Allied_Count', 'Opposing_Count'], x='Team_Key', width=0.5, color=Spectral6[:2], source=source,
        legend_label=['Matches With', 'Matches Against'], name='stacked')
 
 # Customize the legend
 p.legend.location = "top_left"
 p.legend.click_policy="hide"  # Allows clicking on legend items to hide the corresponding data
 
-# Show the results
+# Show and save the results
 curdoc().theme = 'dark_minimal'
-export_png(p, filename="plot.png", webdriver=driver)
+
+# Define the directory for the output
+out_dir = "output/" + requested_team
+if not os.path.exists(out_dir):
+    os.makedirs(out_dir)
+
+# Replace 'Matches Against' with 'Ma' and 'Matches With' with 'Mw' in requested_match_type
+requested_match_type = ['Ma' if mt == 'Matches Against' else 'Mw' if mt == 'Matches With' else mt for mt in requested_match_type]
+export_png(p, filename=out_dir + "/" + ''.join(requested_match_type) + str(start_year) + "-" + str(end_year) + "plot.png", webdriver=driver)
 # export_svg(p, filename="plot.svg", webdriver=driver, height=max(source.data['Count'])*50)
+output_file(out_dir + "/" + ''.join(requested_match_type) + str(start_year) + "-" + str(end_year) + ".html")
+save(p, title=title)
 show(p)
